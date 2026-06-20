@@ -1,0 +1,26 @@
+# Rust build output
+/target/
+
+# Local runtime data and diagnostics
+*.db
+*.sqlite
+*.sqlite3
+*.log
+/logs/
+/backups/
+/sounds/
+/.ai-guides/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editor and OS metadata
+.DS_Store
+.idea/
+.vscode/

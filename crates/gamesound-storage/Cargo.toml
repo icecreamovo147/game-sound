@@ -1,0 +1,15 @@
+[package]
+name = "gamesound-storage"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+chrono.workspace = true
+toml = "0.8"
+serde_json = "1"
+directories = "5"
+rusqlite = { version = "0.32", features = ["bundled"] }
+gamesound-core = { path = "../gamesound-core" }
