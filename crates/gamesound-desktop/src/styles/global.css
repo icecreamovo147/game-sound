@@ -1,0 +1,80 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+}
+
+/* Scrollbar — use Mantine tokens for theme-aware colors */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: light-dark(
+    var(--mantine-color-gray-4),
+    var(--mantine-color-dark-4)
+  );
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: light-dark(
+    var(--mantine-color-gray-5),
+    var(--mantine-color-dark-3)
+  );
+}
+
+/* Level meter animation */
+.level-meter-bar {
+  transition: width 0.1s ease-out;
+}
+
+/* Sound card playing state */
+.sound-card-playing {
+  border-color: var(--mantine-color-cyan-6) !important;
+  box-shadow: 0 0 8px rgba(21, 170, 191, 0.3);
+}
+
+/* Status indicator dots */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-running {
+  background: var(--mantine-color-green-6);
+  box-shadow: 0 0 6px rgba(64, 192, 87, 0.5);
+}
+
+.status-stopped {
+  background: var(--mantine-color-gray-6);
+}
+
+.status-warning {
+  background: var(--mantine-color-yellow-6);
+  box-shadow: 0 0 6px rgba(250, 176, 5, 0.5);
+}
+
+/* Navbar button hover — theme-aware */
+.navbar-btn:not([data-active="true"]):hover {
+  background: light-dark(
+    rgba(0, 0, 0, 0.04),
+    rgba(255, 255, 255, 0.05)
+  ) !important;
+  color: var(--mantine-color-text) !important;
+}

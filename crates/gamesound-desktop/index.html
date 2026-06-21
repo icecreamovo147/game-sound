@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GameSound Desktop</title>
+    <script>
+      // Prevent flash of wrong theme — read stored preference before Mantine loads
+      (function() {
+        try {
+          var stored = localStorage.getItem("gamesound-color-scheme") || "dark";
+          if (stored === "auto") {
+            if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+              stored = "light";
+            } else {
+              stored = "dark";
+            }
+          }
+          document.documentElement.setAttribute("data-mantine-color-scheme", stored);
+        } catch (_) {
+          document.documentElement.setAttribute("data-mantine-color-scheme", "dark");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
