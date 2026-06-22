@@ -16,7 +16,7 @@ interface DeviceState {
   setMonitorDevice: (device: string) => Promise<void>;
 }
 
-export const useDeviceStore = create<DeviceState>((set, get) => ({
+export const useDeviceStore = create<DeviceState>((set, _get) => ({
   inputs: [],
   outputs: [],
   selectedMic: null,

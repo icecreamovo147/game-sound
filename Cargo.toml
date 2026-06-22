@@ -1,5 +1,10 @@
 [workspace]
-members = ["crates/gamesound-core", "crates/gamesound-storage", "crates/gamesound-tui"]
+members = [
+    "crates/gamesound-core",
+    "crates/gamesound-storage",
+    "crates/gamesound-tui",
+    "crates/gamesound-desktop/src-tauri",
+]
 resolver = "2"
 
 [workspace.package]
@@ -12,6 +17,7 @@ authors = ["GameSound contributors"]
 anyhow = "1"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }

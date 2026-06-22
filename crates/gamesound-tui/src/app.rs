@@ -238,7 +238,10 @@ impl App {
         }
     }
     pub fn shutdown(&self) {
-        let _ = self.runtime.commands.send(RuntimeCommand::Shutdown);
+        let _ = self
+            .runtime
+            .commands
+            .send(RuntimeCommand::Shutdown(std::sync::mpsc::channel().0));
     }
     fn selected_sound(&self) -> Option<Sound> {
         self.sounds.get(self.selected).cloned()
@@ -892,8 +895,7 @@ impl App {
             KeyCode::Char('b') => {
                 self.config.monitor.mode = match self.config.monitor.mode {
                     MonitorMode::SfxOnly => MonitorMode::FullMix,
-                    MonitorMode::FullMix => MonitorMode::Off,
-                    MonitorMode::Off => MonitorMode::SfxOnly,
+                    MonitorMode::FullMix => MonitorMode::SfxOnly,
                 };
                 self.save();
                 self.notice = "Monitor mode updated (restart audio to apply)".into();
@@ -1067,10 +1069,7 @@ impl App {
                     mic: self.config.audio.devices.mic.clone(),
                     output,
                     monitor: if self.config.monitor.enabled {
-                        match self.config.monitor.mode {
-                            MonitorMode::Off => None,
-                            _ => self.config.audio.devices.monitor.clone(),
-                        }
+                        self.config.audio.devices.monitor.clone()
                     } else {
                         None
                     },

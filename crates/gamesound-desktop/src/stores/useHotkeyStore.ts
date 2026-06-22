@@ -71,7 +71,7 @@ export const useHotkeyStore = create<HotkeyState>((set, get) => ({
   reregisterHotkeys: async () => {
     set({ error: null });
     try {
-      const count = await hotkeysApi.reregisterHotkeys();
+      await hotkeysApi.reregisterHotkeys();
       await get().fetchBindings();
     } catch (e) {
       set({ error: String(e) });

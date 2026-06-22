@@ -4,6 +4,12 @@ use crate::{
     mixer::{Levels, MixerSettings},
     sound::Sound,
 };
+#[cfg(target_os = "macos")]
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrusted() -> bool;
+}
+
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use std::{
     collections::{HashMap, HashSet},
@@ -69,7 +75,7 @@ pub enum RuntimeCommand {
     },
     SuspendHotkeys,
     StopAudio,
-    Shutdown,
+    Shutdown(std::sync::mpsc::Sender<()>),
 }
 #[derive(Debug, Clone)]
 pub enum RuntimeEvent {
@@ -90,6 +96,7 @@ pub struct RuntimeHandle {
     pub events: Receiver<RuntimeEvent>,
 }
 pub fn spawn_runtime() -> RuntimeHandle {
+    tracing::info!(target: "gamesound_core::runtime", "spawning runtime thread");
     let (cmd_tx, cmd_rx) = unbounded();
     let (event_tx, event_rx) = unbounded();
     let (raw_hotkey_tx, raw_hotkey_rx) = unbounded();
@@ -111,6 +118,7 @@ fn run(
 ) {
     // CPAL streams are intentionally !Send on some hosts (notably CoreAudio), so
     // the runtime thread owns the engine and emits level snapshots after commands.
+    tracing::info!(target: "gamesound_core::runtime", "runtime loop started");
     let mut engine = AudioEngine::default();
     let mut settings = MixerSettings::default();
     let mut hotkeys: Option<HotkeyRegistry> = None;
@@ -412,9 +420,11 @@ fn run(
                 let _ = events.send(RuntimeEvent::Status(RuntimeStatus::Stopped));
                 Ok(())
             }
-            RuntimeCommand::Shutdown => {
+            RuntimeCommand::Shutdown(done) => {
+                tracing::info!(target: "gamesound_core::runtime", "shutdown requested, stopping engine");
                 engine.shutdown();
                 let _ = events.send(RuntimeEvent::Status(RuntimeStatus::Stopped));
+                let _ = done.send(());
                 break;
             }
         };
@@ -511,6 +521,13 @@ fn emit_audio_events(engine: &mut AudioEngine, events: &Sender<RuntimeEvent>) {
                     "monitor buffer overrun; local monitoring dropped frames".into(),
                 ));
             }
+            AudioEvent::MicUnderflow(count) => {
+                tracing::trace!(
+                    target: "gamesound_core::runtime",
+                    count,
+                    "mic ring buffer underflow ({} frames dropped this callback cycle)", count
+                );
+            }
         }
     }
     let health = engine.take_health();
@@ -556,30 +573,84 @@ mod tests {
 }
 
 #[cfg(target_os = "macos")]
+pub(crate) extern "C" fn hotkey_sigtrap_handler(_: libc::c_int) {
+    // Terminate only the hotkey-listener thread; the main process survives.
+    // This is called when macOS sends SIGTRAP because CGEventTap detected
+    // that the process does not actually have Accessibility permissions
+    // (common when AXIsProcessTrusted() returns a stale true).
+    unsafe { libc::pthread_exit(std::ptr::null_mut()) };
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn install_hotkey_sigtrap_handler() {
+    unsafe {
+        let mut sa: libc::sigaction = std::mem::zeroed();
+        sa.sa_sigaction = hotkey_sigtrap_handler as *const () as usize;
+        sa.sa_flags = libc::SA_SIGINFO;
+        libc::sigaction(libc::SIGTRAP, &sa, std::ptr::null_mut());
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn restore_sigtrap_handler() {
+    unsafe {
+        libc::signal(libc::SIGTRAP, libc::SIG_DFL);
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn start_macos_hotkey_listener(sender: Sender<String>, events: Sender<RuntimeEvent>) {
     thread::Builder::new()
         .name("gamesound-macos-hotkeys".into())
         .spawn(move || {
-            let _ = events.send(RuntimeEvent::Warning("macOS global hotkeys use the Accessibility keyboard listener; grant Accessibility permission to the host app (VS Code or Terminal) if no events arrive".into()));
-            let modifiers = Arc::new(Mutex::new(RawModifiers::default()));
-            let state = modifiers.clone();
-            if let Err(error) = rdev::listen(move |event| match event.event_type {
-                rdev::EventType::KeyPress(key) => {
-                    let mut modifiers = state.lock().expect("modifier mutex");
-                    if modifiers.press(key) {
-                        return;
+            let trusted = unsafe { AXIsProcessTrusted() };
+            if !trusted {
+                let _ = events.send(RuntimeEvent::Warning(
+                    "macOS Accessibility permission not granted. Global hotkeys and key capture are disabled.\n\n                     To enable: open System Settings \u{2192} Privacy & Security \u{2192} Accessibility,                      then add and enable GameSound Desktop.\n\n                     If the app is not listed, click the '+' button and navigate to the app bundle,                      or drag the app icon from Finder into the list.".into(),
+                ));
+                return;
+            }
+
+            // Install a SIGTRAP handler that cleanly terminates only this thread.
+            // rdev::listen uses CGEventTap which may send SIGTRAP if permissions
+            // were granted to a previous build but are now invalid (common in dev).
+            install_hotkey_sigtrap_handler();
+
+            // Use catch_unwind so that rdev panics do not crash the entire process.
+            let result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+                let _ = events.send(RuntimeEvent::Warning("macOS global hotkeys use the Accessibility keyboard listener; grant Accessibility permission to the host app (VS Code or Terminal) if no events arrive".into()));
+                let modifiers = Arc::new(Mutex::new(RawModifiers::default()));
+                let state = modifiers.clone();
+                if let Err(error) = rdev::listen(move |event| match event.event_type {
+                    rdev::EventType::KeyPress(key) => {
+                        let mut modifiers = state.lock().expect("modifier mutex");
+                        if modifiers.press(key) {
+                            return;
+                        }
+                        if let Some(key_name) = rdev_key_name(key) {
+                            let _ = sender.send(modifiers.format(key_name));
+                        }
                     }
-                    if let Some(key_name) = rdev_key_name(key) {
-                        let _ = sender.send(modifiers.format(key_name));
+                    rdev::EventType::KeyRelease(key) => {
+                        state.lock().expect("modifier mutex").release(key);
                     }
+                    _ => {}
+                }) {
+                    let _ = events.send(RuntimeEvent::Error(format!(
+                        "macOS global keyboard listener failed: {error:?}"
+                    )));
                 }
-                rdev::EventType::KeyRelease(key) => {
-                    state.lock().expect("modifier mutex").release(key);
-                }
-                _ => {}
-            }) {
+            }));
+
+            // Restore default SIGTRAP handler for other parts of the process
+            restore_sigtrap_handler();
+
+            if let Err(panic) = result {
+                let msg = panic.downcast_ref::<String>().map(String::as_str)
+                    .or_else(|| panic.downcast_ref::<&str>().copied())
+                    .unwrap_or("unknown panic");
                 let _ = events.send(RuntimeEvent::Error(format!(
-                    "macOS global keyboard listener failed: {error:?}"
+                    "macOS global keyboard listener panicked: {msg}"
                 )));
             }
         })

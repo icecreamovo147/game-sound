@@ -3,6 +3,15 @@ use gamesound_core::runtime::{RuntimeCommand, VolumeTarget};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+macro_rules! cmd_trace {
+    ($name:expr) => {
+        tracing::info!(target: "gamesound_desktop::command", "called: {}", $name);
+    };
+    ($name:expr, success) => {
+        tracing::debug!(target: "gamesound_desktop::command", "success: {}", $name);
+    };
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MixerInfo {
     pub mic_volume: f32,
@@ -23,7 +32,20 @@ pub struct MixerInfo {
 
 #[tauri::command]
 pub fn get_mixer_settings(state: State<AppState>) -> Result<MixerInfo, String> {
+    cmd_trace!("get_mixer_settings");
+
     let settings = state.mixer_settings.lock().unwrap();
+
+    tracing::debug!(
+        target: "gamesound_desktop::mixer",
+        mic_vol = settings.mic_volume,
+        sfx_vol = settings.sfx_volume,
+        monitor_vol = settings.monitor_volume,
+        ducking = settings.ducking,
+        "mixer settings read"
+    );
+    cmd_trace!("get_mixer_settings", success);
+
     Ok(MixerInfo {
         mic_volume: settings.mic_volume,
         sfx_volume: settings.sfx_volume,
@@ -62,6 +84,8 @@ pub fn update_mixer_settings(
     state: State<AppState>,
     params: UpdateMixerParams,
 ) -> Result<MixerInfo, String> {
+    cmd_trace!("update_mixer_settings");
+
     let mut settings = state.mixer_settings.lock().unwrap();
     let runtime = state.runtime.lock().unwrap();
 
@@ -100,6 +124,7 @@ pub fn update_mixer_settings(
                 muted: val,
             });
         }
+        tracing::info!(target: "gamesound_desktop::mixer", muted = val, "mic mute toggled");
     }
     if let Some(val) = params.sfx_muted {
         settings.sfx_muted = val;
@@ -109,6 +134,7 @@ pub fn update_mixer_settings(
                 muted: val,
             });
         }
+        tracing::info!(target: "gamesound_desktop::mixer", muted = val, "sfx mute toggled");
     }
     if let Some(val) = params.monitor_muted {
         settings.monitor_muted = val;
@@ -118,6 +144,7 @@ pub fn update_mixer_settings(
                 muted: val,
             });
         }
+        tracing::info!(target: "gamesound_desktop::mixer", muted = val, "monitor mute toggled");
     }
 
     let ducking_changed = params.ducking_enabled.is_some()
@@ -128,6 +155,7 @@ pub fn update_mixer_settings(
 
     if let Some(val) = params.ducking_enabled {
         settings.ducking = val;
+        tracing::info!(target: "gamesound_desktop::mixer", enabled = val, "ducking toggled");
     }
     if let Some(val) = params.duck_ratio {
         settings.duck_ratio = val.clamp(0., 1.);
@@ -143,6 +171,12 @@ pub fn update_mixer_settings(
     }
 
     if ducking_changed {
+        tracing::debug!(
+            target: "gamesound_desktop::mixer",
+            enabled = settings.ducking,
+            ratio = settings.duck_ratio,
+            "ducking settings updated"
+        );
         if let Some(handle) = runtime.as_ref() {
             let _ = handle.commands.send(RuntimeCommand::SetDucking {
                 enabled: settings.ducking,
@@ -157,7 +191,8 @@ pub fn update_mixer_settings(
     drop(runtime);
 
     // Save config
-    let _ = state.save_config();
+    let _ = state.save_config_with(&settings);
+    cmd_trace!("update_mixer_settings", success);
 
     Ok(MixerInfo {
         mic_volume: settings.mic_volume,
@@ -178,11 +213,20 @@ pub fn update_mixer_settings(
 }
 
 macro_rules! simple_volume_cmd {
-    ($name:ident, $target:expr, $field:ident) => {
+    ($name:ident, $target:expr, $field:ident, $label:expr) => {
         #[tauri::command]
         pub fn $name(state: State<AppState>, value: f32) -> Result<(), String> {
+            cmd_trace!(stringify!($name));
+            let clamped = value.clamp(0., 1.);
+            tracing::info!(
+                target: "gamesound_desktop::mixer",
+                target = $label,
+                value = clamped,
+                "volume set"
+            );
+
             let mut settings = state.mixer_settings.lock().unwrap();
-            settings.$field = value.clamp(0., 1.);
+            settings.$field = clamped;
             let runtime = state.runtime.lock().unwrap();
             if let Some(handle) = runtime.as_ref() {
                 let _ = handle.commands.send(RuntimeCommand::SetVolume {
@@ -190,22 +234,38 @@ macro_rules! simple_volume_cmd {
                     value: settings.$field,
                 });
             }
-            let _ = state.save_config();
+            let _ = state.save_config_with(&settings);
+            cmd_trace!(stringify!($name), success);
             Ok(())
         }
     };
 }
 
-simple_volume_cmd!(set_mic_volume, VolumeTarget::Mic, mic_volume);
-simple_volume_cmd!(set_sfx_volume, VolumeTarget::Sfx, sfx_volume);
-simple_volume_cmd!(set_monitor_volume, VolumeTarget::Monitor, monitor_volume);
+simple_volume_cmd!(set_mic_volume, VolumeTarget::Mic, mic_volume, "mic");
+simple_volume_cmd!(set_sfx_volume, VolumeTarget::Sfx, sfx_volume, "sfx");
+simple_volume_cmd!(
+    set_monitor_volume,
+    VolumeTarget::Monitor,
+    monitor_volume,
+    "monitor"
+);
 
 macro_rules! simple_mute_cmd {
-    ($name:ident, $target:expr, $field:ident) => {
+    ($name:ident, $target:expr, $field:ident, $label:expr) => {
         #[tauri::command]
         pub fn $name(state: State<AppState>) -> Result<bool, String> {
+            cmd_trace!(stringify!($name));
+
             let mut settings = state.mixer_settings.lock().unwrap();
             settings.$field = !settings.$field;
+
+            tracing::info!(
+                target: "gamesound_desktop::mixer",
+                target = $label,
+                muted = settings.$field,
+                "mute toggled"
+            );
+
             let runtime = state.runtime.lock().unwrap();
             if let Some(handle) = runtime.as_ref() {
                 let _ = handle.commands.send(RuntimeCommand::SetMute {
@@ -213,12 +273,18 @@ macro_rules! simple_mute_cmd {
                     muted: settings.$field,
                 });
             }
-            let _ = state.save_config();
+            let _ = state.save_config_with(&settings);
+            cmd_trace!(stringify!($name), success);
             Ok(settings.$field)
         }
     };
 }
 
-simple_mute_cmd!(toggle_mic_mute, VolumeTarget::Mic, mic_muted);
-simple_mute_cmd!(toggle_sfx_mute, VolumeTarget::Sfx, sfx_muted);
-simple_mute_cmd!(toggle_monitor, VolumeTarget::Monitor, monitor_muted);
+simple_mute_cmd!(toggle_mic_mute, VolumeTarget::Mic, mic_muted, "mic");
+simple_mute_cmd!(toggle_sfx_mute, VolumeTarget::Sfx, sfx_muted, "sfx");
+simple_mute_cmd!(
+    toggle_monitor,
+    VolumeTarget::Monitor,
+    monitor_muted,
+    "monitor"
+);

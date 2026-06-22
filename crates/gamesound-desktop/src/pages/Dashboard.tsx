@@ -1,5 +1,4 @@
 import {
-  Paper,
   Title,
   SimpleGrid,
   Group,
@@ -71,6 +70,12 @@ export default function Dashboard() {
   const isRunning = runtime.status.status === "Running";
   const isWarning = runtime.status.status === "Warning";
 
+  const statusLabel: Record<string, string> = {
+    Running: t("runtime.running"),
+    Stopped: t("runtime.stopped"),
+    Warning: t("runtime.warning"),
+  };
+
   return (
     <Stack gap="md" h="100%">
       <Group justify="space-between">
@@ -122,7 +127,7 @@ export default function Dashboard() {
             color={isRunning ? "green" : isWarning ? "yellow" : "gray"}
             variant="filled"
           >
-            {runtime.status.status}
+            {statusLabel[runtime.status.status] ?? runtime.status.status}
           </Badge>
         </Card>
 

@@ -21,10 +21,107 @@ pub fn spawn_event_forwarder(app: tauri::AppHandle) {
 
         // Drain all pending events
         while let Ok(event) = handle.events.try_recv() {
+            let event_type = event_type_str(&event);
             let payload = serialize_event(&event);
             let _ = app.emit("runtime-event", payload);
+
+            match &event {
+                RuntimeEvent::Error(msg) => {
+                    tracing::error!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        error = %msg,
+                        "emitting error_occurred"
+                    );
+                }
+                RuntimeEvent::Warning(msg) => {
+                    tracing::warn!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        warning = %msg,
+                        "emitting warning"
+                    );
+                }
+                RuntimeEvent::Status(status) => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        status = format!("{:?}", status),
+                        "emitting runtime_status_changed"
+                    );
+                }
+                RuntimeEvent::SoundStarted(id) => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        sound_id = id,
+                        "emitting sound_started"
+                    );
+                }
+                RuntimeEvent::SoundStopped(id) => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        sound_id = id,
+                        "emitting sound_stopped"
+                    );
+                }
+                RuntimeEvent::HotkeysRegistered(count) => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        count = count,
+                        "emitting hotkeys_registered"
+                    );
+                }
+                RuntimeEvent::HotkeysSuspended => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        "emitting hotkeys_suspended"
+                    );
+                }
+                RuntimeEvent::HotkeyCaptured(shortcut) => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        shortcut = shortcut,
+                        "emitting hotkey_captured"
+                    );
+                }
+                RuntimeEvent::SwitchProfileRequested => {
+                    tracing::info!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        "emitting switch_profile_requested"
+                    );
+                }
+                RuntimeEvent::Levels(_) => {
+                    // Level events fire at ~20 Hz; log at trace level only
+                    tracing::trace!(
+                        target: "gamesound_desktop::event",
+                        event = event_type,
+                        "emitting levels"
+                    );
+                }
+            }
         }
     });
+}
+
+fn event_type_str(event: &RuntimeEvent) -> &'static str {
+    match event {
+        RuntimeEvent::SoundStarted(_) => "SoundStarted",
+        RuntimeEvent::SoundStopped(_) => "SoundStopped",
+        RuntimeEvent::HotkeysSuspended => "HotkeysSuspended",
+        RuntimeEvent::HotkeysRegistered(_) => "HotkeysRegistered",
+        RuntimeEvent::HotkeyCaptured(_) => "HotkeyCaptured",
+        RuntimeEvent::Levels(_) => "Levels",
+        RuntimeEvent::Status(_) => "Status",
+        RuntimeEvent::Error(_) => "Error",
+        RuntimeEvent::Warning(_) => "Warning",
+        RuntimeEvent::SwitchProfileRequested => "SwitchProfileRequested",
+    }
 }
 
 fn serialize_event(event: &RuntimeEvent) -> serde_json::Value {

@@ -11,6 +11,7 @@ export async function updateSettings(params: {
   log_level?: string;
   monitor_mode?: string;
   hotkeys_enabled?: boolean;
+    close_behavior?: string;
 }): Promise<void> {
   return invoke("update_settings", { params });
 }

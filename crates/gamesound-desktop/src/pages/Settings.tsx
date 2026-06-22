@@ -52,6 +52,10 @@ export default function Settings() {
     settingsStore.updateSettings({ language: newLocale });
   };
 
+  const handleCloseBehaviorChange = (v: string) => {
+    settingsStore.updateSettings({ close_behavior: v });
+  };
+
   const handleResetConfig = () => {
     modals.openConfirmModal({
       title: t("settings.resetConfigTitle"),
@@ -101,6 +105,27 @@ export default function Settings() {
         />
       </Card>
 
+      {/* Close Behavior */}
+      {settings && (
+        <Card padding="md" radius="md" withBorder>
+          <Text fw={500} size="sm" mb={4}>
+            {t("settings.closeBehavior")}
+          </Text>
+          <Text size="xs" c="dimmed" mb="md">
+            {t("settings.closeBehaviorDescription")}
+          </Text>
+          <SegmentedControl
+            value={settings.close_behavior}
+            onChange={handleCloseBehaviorChange}
+            data={[
+              { label: t("settings.closeBehaviorAsk"), value: "ask" },
+              { label: t("settings.closeBehaviorMinimizeToTray"), value: "minimize_to_tray" },
+              { label: t("settings.closeBehaviorQuit"), value: "quit" },
+            ]}
+          />
+        </Card>
+      )}
+
       {/* Audio */}
       {settings && (
         <Card padding="md" radius="md" withBorder>
@@ -113,7 +138,7 @@ export default function Settings() {
                 {t("settings.sampleRate")}
               </Text>
               <Text size="sm" fw={500}>
-                {settings.sample_rate} Hz
+                {settings.sample_rate} {t("settings.hz")}
               </Text>
             </div>
             <div>

@@ -15,6 +15,8 @@ pub struct AppConfig {
     pub monitor: Monitor,
     pub ducking: Ducking,
     pub hotkeys: Hotkeys,
+    #[serde(default)]
+    pub desktop: Desktop,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct App {
@@ -69,7 +71,6 @@ pub struct Monitor {
 pub enum MonitorMode {
     SfxOnly,
     FullMix,
-    Off,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Ducking {
@@ -126,6 +127,34 @@ fn default_monitor_down() -> String {
 fn default_switch_profile() -> String {
     "ctrl+alt+p".into()
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Desktop {
+    #[serde(default = "default_close_behavior")]
+    pub close_behavior: CloseBehavior,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CloseBehavior {
+    #[default]
+    Ask,
+    MinimizeToTray,
+    Quit,
+}
+
+fn default_close_behavior() -> CloseBehavior {
+    CloseBehavior::Ask
+}
+
+impl Default for Desktop {
+    fn default() -> Self {
+        Self {
+            close_behavior: CloseBehavior::Ask,
+        }
+    }
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -179,6 +208,7 @@ impl Default for AppConfig {
                 monitor_volume_down: default_monitor_down(),
                 switch_profile: default_switch_profile(),
             },
+            desktop: Desktop::default(),
         }
     }
 }

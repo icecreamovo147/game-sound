@@ -1,8 +1,17 @@
-# GameSound TUI
+# GameSound
 
-GameSound is a Rust terminal soundboard for game and voice-chat use. It keeps a sound library in SQLite, runs a Ratatui interface, decodes common audio formats through Symphonia, captures a real microphone with CPAL, mixes it with triggered effects, and writes the result to a user-installed virtual audio output device.
+GameSound is a Rust soundboard for game and voice-chat use. It captures a real microphone, mixes it with triggered sound effects, and outputs the result through a virtual audio output device — making your voice and sound effects audible together in Discord, QQ, WeChat, or any in-game voice chat.
 
-## Quick start
+## Editions
+
+| Edition | Interface | Tech Stack | Entry Point |
+|---------|-----------|------------|-------------|
+| **game-sound** | Terminal (TUI) | Rust + Ratatui + Crossterm | `cargo run -p gamesound` |
+| **game-sound-desktop** | Desktop (GUI) | Tauri 2 + React + Mantine | `cd crates/gamesound-desktop && pnpm tauri:dev` |
+
+Both editions share the same core audio engine (`gamesound-core`) and persistent storage (`gamesound-storage`). Sounds, categories, profiles, hotkeys, and settings are stored once and available to either interface.
+
+## Quick start — TUI
 
 ```bash
 cargo run -p gamesound
@@ -18,6 +27,30 @@ cargo run -p gamesound -- backup
 ```
 
 On first launch open configuration (`C`), select a real microphone (`M`) and a virtual output (`O`), such as BlackHole on macOS or VB-CABLE on Windows. Select the corresponding virtual **input** in Discord, QQ, WeChat, or the game. Optional local monitoring uses a separate output (`L`). Start the device streams with `T`.
+
+## Quick start — Desktop GUI
+
+```bash
+cd crates/gamesound-desktop
+
+# Install frontend dependencies
+pnpm install
+
+# Run in development mode
+pnpm tauri:dev
+
+# Build for production
+pnpm tauri:build
+```
+
+The desktop application provides:
+- **Dashboard** — Real-time status overview, audio levels, quick actions
+- **Sound Library** — Card-based sound browser with search, categories, play/stop, volume control
+- **Device Settings** — Enumerate, select, and test audio devices with virtual device detection
+- **Mixer** — Per-channel volume, mute, ducking, and real-time level meters
+- **Hotkeys** — Bind global shortcuts to sounds with conflict detection and keyboard capture
+- **Settings** — Theme, config export/import, log access, profile info
+- **Setup Guide** — Step-by-step instructions for macOS, Windows, Discord, QQ, and in-game configuration
 
 ## TUI controls
 
@@ -51,3 +84,55 @@ Exported profile manifests include categories, sound settings and per-sound glob
 5. Enable a monitor device only with headphones to avoid feedback. Disconnect a selected device to verify the TUI reports the stream error rather than crashing.
 
 The automated test suite covers mixer limiting/ducking, format/path failures, configuration persistence/backup/recovery, category-safe deletion, recursive imports, virtual-device recognition, and hotkey parsing. Physical routing, driver availability, and OS hotkey permissions require the above manual check.
+
+## Build & Test
+
+```bash
+# Lint and format check
+cargo fmt --check
+cargo clippy --workspace --all-targets --all-features
+
+# Run all tests
+cargo test --workspace --all-features
+
+# Build all crates (TUI + Desktop + Core + Storage)
+cargo build --workspace
+
+# Desktop frontend
+cd crates/gamesound-desktop
+pnpm install
+pnpm typecheck
+pnpm build
+
+# Full Tauri build (requires platform-specific setup)
+pnpm tauri:build
+```
+
+## Architecture
+
+```
+gamesound/
+├── crates/
+│   ├── gamesound-core/        Audio engine, device I/O, hotkey registry, mixer, runtime
+│   ├── gamesound-storage/     SQLite library, TOML config, backup/restore
+│   ├── gamesound-tui/         Terminal UI (Ratatui + Crossterm)
+│   └── gamesound-desktop/     Desktop GUI (Tauri 2 + React + Mantine)
+│       ├── src/               React frontend (TypeScript)
+│       │   ├── api/           Tauri invoke wrappers
+│       │   ├── stores/        Zustand state management
+│       │   ├── pages/         Dashboard, SoundLibrary, Devices, Mixer, Hotkeys, Settings, SetupGuide
+│       │   └── components/    Layout, Navbar, LevelMeter, SoundCard, DeviceSelector, etc.
+│       └── src-tauri/         Rust backend
+│           └── src/
+│               ├── commands/  All Tauri commands (runtime, sounds, devices, mixer, hotkeys, settings)
+│               ├── state.rs   Shared AppState (RuntimeHandle, Library, ConfigStore)
+│               └── events.rs  Runtime event forwarding to frontend
+└── docs/                      Project documentation (13 docs, EN/ZH)
+```
+
+## Virtual Audio Device Setup
+
+**macOS:** Install [BlackHole 2ch](https://existential.audio/blackhole/)  
+**Windows:** Install [VB-CABLE](https://vb-audio.com/Cable/)
+
+In GameSound, select your real microphone and the virtual device as output. Then set the virtual device as the input in your voice apps. See the **Setup Guide** page in the desktop app for detailed instructions.

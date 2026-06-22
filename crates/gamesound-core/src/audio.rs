@@ -192,6 +192,7 @@ pub enum AudioEvent {
     SoundStopped(i64),
     MicOverrun,
     MonitorOverrun,
+    MicUnderflow(u64),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StreamFault {
@@ -394,6 +395,7 @@ impl AudioEngine {
             output_format,
             OutputCallback {
                 mic: mic_consumer,
+                mic_underflow: 0,
                 commands: command_consumer,
                 events: event_producer,
                 controls: self.controls.clone(),
@@ -624,6 +626,7 @@ struct OutputCallback {
     sfx_monitor: Option<Producer<f32>>,
     output_rate: u32,
     output_channels: usize,
+    mic_underflow: u64,
 }
 struct OutputState {
     active: Vec<ActiveSound>,
@@ -750,7 +753,13 @@ impl OutputState {
                 load_f32(&callback.controls.sfx_volume)
             };
             for channel in 0..callback.output_channels {
-                let mic = callback.mic.pop().unwrap_or(0.);
+                let mic = match callback.mic.pop() {
+                    Some(sample) => sample,
+                    None => {
+                        callback.mic_underflow = callback.mic_underflow.saturating_add(1);
+                        0.
+                    }
+                };
                 let mut sfx = 0.;
                 for sound in &mut self.active {
                     if !sound.paused && sound.cursor < sound.pcm.len() {
@@ -795,6 +804,12 @@ impl OutputState {
                     let _ = callback.events.push(AudioEvent::SoundStarted(id));
                 }
             }
+        }
+        if callback.mic_underflow > 0 {
+            let _ = callback
+                .events
+                .push(AudioEvent::MicUnderflow(callback.mic_underflow));
+            callback.mic_underflow = 0;
         }
         callback
             .controls

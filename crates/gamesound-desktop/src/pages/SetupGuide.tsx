@@ -24,94 +24,79 @@ function useSteps() {
   return [
     {
       label: t("setupGuide.stepInstallLabel"),
-      description:
-        os === "macos"
-          ? "Install BlackHole 2ch"
-          : "Install VB-CABLE",
-      details:
-        os === "macos"
-          ? [
-              'Download BlackHole from existential.audio/blackhole',
-              "Install the 2ch version (not 16ch)",
-              "Restart your Mac after installation",
-              'Open Audio MIDI Setup → Verify "BlackHole 2ch" appears',
-            ]
-          : [
-              'Download VB-CABLE from vb-audio.com/Cable',
-              "Run the installer as Administrator",
-              "Restart your computer",
-              'Open Sound Settings → Verify "CABLE Input" appears',
-            ],
+      description: os === "macos"
+        ? t("setupGuide.step1DescMac")
+        : t("setupGuide.step1DescWin"),
+      details: os === "macos"
+        ? [
+            t("setupGuide.step1Mac1"),
+            t("setupGuide.step1Mac2"),
+            t("setupGuide.step1Mac3"),
+            t("setupGuide.step1Mac4"),
+          ]
+        : [
+            t("setupGuide.step1Win1"),
+            t("setupGuide.step1Win2"),
+            t("setupGuide.step1Win3"),
+            t("setupGuide.step1Win4"),
+          ],
     },
     {
       label: t("setupGuide.stepConfigureLabel"),
-      description: "Select devices in Device Settings",
+      description: t("setupGuide.step2Desc"),
       details: [
-        'Navigate to Devices page',
-        'Select your real microphone as "Input Device"',
-        'Select BlackHole / VB-CABLE as "Virtual Output"',
-        "Optionally select headphones as Monitor",
+        t("setupGuide.step2Detail1"),
+        t("setupGuide.step2Detail2"),
+        t("setupGuide.step2Detail3"),
+        t("setupGuide.step2Detail4"),
       ],
     },
     {
       label: t("setupGuide.stepVoiceAppsLabel"),
-      description: "Set virtual device as mic input",
+      description: t("setupGuide.step3Desc"),
       details: [
-        "Open Discord → User Settings → Voice & Video",
-        'Set "Input Device" to BlackHole 2ch / CABLE Output',
-        "Disable Echo Cancellation & Noise Suppression",
-        "Disable Automatic Gain Control",
-        "In QQ/WeChat: Go to Audio Settings",
-        'Choose the virtual device as microphone',
-        "In-game: Find Voice Chat settings",
-        'Select virtual device as input source',
+        t("setupGuide.step3Detail1"),
+        t("setupGuide.step3Detail2"),
+        t("setupGuide.step3Detail3"),
+        t("setupGuide.step3Detail4"),
+        t("setupGuide.step3Detail5"),
+        t("setupGuide.step3Detail6"),
+        t("setupGuide.step3Detail7"),
+        t("setupGuide.step3Detail8"),
       ],
     },
     {
       label: t("setupGuide.stepTestLabel"),
-      description: "Verify the audio chain works",
+      description: t("setupGuide.step4Desc"),
       details: [
-        "Start the audio engine",
-        "Add a sound effect and play it",
-        "Ask a friend if they can hear both your voice and the effect",
-        "Adjust volumes as needed",
-        "If no sound: check monitor level, verify virtual device in voice app",
+        t("setupGuide.step4Detail1"),
+        t("setupGuide.step4Detail2"),
+        t("setupGuide.step4Detail3"),
+        t("setupGuide.step4Detail4"),
+        t("setupGuide.step4Detail5"),
       ],
     },
   ];
 }
 
-const faqItems = [
-  {
-    q: "Why can't my friends hear me?",
-    a: "Make sure your real microphone is selected in GameSound. Check that the microphone level meter shows activity when you speak. The engine must be running.",
-  },
-  {
-    q: "Why can't friends hear my sound effects?",
-    a: "Verify the virtual output device is selected. In the voice app, set the input to BlackHole 2ch / CABLE Output. Sound effects should have non-zero volume.",
-  },
-  {
-    q: "Why do I hear an echo?",
-    a: "Use headphones instead of speakers. Set monitor mode to 'SFX Only'. Disable sidetone/monitoring in your voice app.",
-  },
-  {
-    q: "Global hotkeys don't work on macOS",
-    a: "Grant Accessibility permission to the GameSound Desktop app in System Preferences → Security & Privacy → Privacy → Accessibility.",
-  },
-  {
-    q: "The audio sounds distorted or crackly",
-    a: "Try increasing the buffer size in Settings. Close other audio-heavy applications. Make sure sample rate matches (48kHz recommended).",
-  },
-  {
-    q: "I can't find BlackHole/VB-CABLE after installing",
-    a: "Restart your computer. BlackHole may appear after restart. VB-CABLE creates 'CABLE Input' and 'CABLE Output' devices.",
-  },
-];
+function useFaqItems() {
+  const { t } = useI18n();
+
+  return [
+    { q: t("setupGuide.faqQ1"), a: t("setupGuide.faqA1") },
+    { q: t("setupGuide.faqQ2"), a: t("setupGuide.faqA2") },
+    { q: t("setupGuide.faqQ3"), a: t("setupGuide.faqA3") },
+    { q: t("setupGuide.faqQ4"), a: t("setupGuide.faqA4") },
+    { q: t("setupGuide.faqQ5"), a: t("setupGuide.faqA5") },
+    { q: t("setupGuide.faqQ6"), a: t("setupGuide.faqA6") },
+  ];
+}
 
 export default function SetupGuide() {
   const { t } = useI18n();
   const [active, setActive] = useState(0);
   const steps = useSteps();
+  const faqItems = useFaqItems();
 
   return (
     <Stack gap="md">
@@ -180,19 +165,16 @@ export default function SetupGuide() {
                 <Text size="sm" fw={500}>
                   {t("setupGuide.discordSetup")}
                 </Text>
-                <Text size="xs" c="dimmed">
-                  User Settings → Voice & Video → Input Device: BlackHole 2ch
-                  <br />
-                  Disable: Echo Cancellation, Noise Suppression, Advanced Voice
-                  Activity, Automatic Gain Control
+                <Text size="xs" c="dimmed" style={{ whiteSpace: "pre-line" }}>
+                  {t("setupGuide.discordSetupDescMac")}
                 </Text>
               </Card>
               <Card padding="sm" radius="sm" withBorder>
                 <Text size="sm" fw={500}>
-                  {t("setupGuide.wechatQQSetup")} (macOS)
+                  {t("setupGuide.wechatQQLabelMac")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Settings → Audio → Microphone: BlackHole 2ch
+                  {t("setupGuide.wechatQQSetupDescMac")}
                 </Text>
               </Card>
             </>
@@ -202,19 +184,16 @@ export default function SetupGuide() {
                 <Text size="sm" fw={500}>
                   {t("setupGuide.discordSetup")}
                 </Text>
-                <Text size="xs" c="dimmed">
-                  User Settings → Voice & Video → Input Device: CABLE Output
-                  <br />
-                  Disable: Echo Cancellation, Noise Suppression, Advanced Voice
-                  Activity, Automatic Gain Control
+                <Text size="xs" c="dimmed" style={{ whiteSpace: "pre-line" }}>
+                  {t("setupGuide.discordSetupDescWin")}
                 </Text>
               </Card>
               <Card padding="sm" radius="sm" withBorder>
                 <Text size="sm" fw={500}>
-                  {t("setupGuide.wechatQQSetup")} (Windows)
+                  {t("setupGuide.wechatQQLabelWin")}
                 </Text>
                 <Text size="xs" c="dimmed">
-                  Settings → Audio → Microphone: CABLE Output
+                  {t("setupGuide.wechatQQSetupDescWin")}
                 </Text>
               </Card>
             </>
@@ -227,8 +206,7 @@ export default function SetupGuide() {
             <Text size="xs" c="dimmed">
               {t("setupGuide.inGameDesc")}
               <br />
-              Common games: Valorant, CS2, League of Legends, Dota 2, Overwatch
-              2, Apex Legends
+              {t("setupGuide.commonGames")}
             </Text>
           </Card>
         </Stack>

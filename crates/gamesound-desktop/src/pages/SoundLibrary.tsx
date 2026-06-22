@@ -12,8 +12,6 @@ import {
   Switch,
   Slider,
   SegmentedControl,
-  ActionIcon,
-  Badge,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import {
@@ -26,8 +24,8 @@ import {
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useSoundStore } from "../stores/useSoundStore";
 import { useHotkeyStore } from "../stores/useHotkeyStore";
-import { useRuntimeStore } from "../stores/useRuntimeStore";
 import { useTauriEvent } from "../hooks/useTauriEvent";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../i18n";
 import SoundCard from "../components/SoundCard";
 import HotkeyCaptureModal from "../components/HotkeyCaptureModal";
@@ -37,8 +35,6 @@ export default function SoundLibrary() {
   const { t } = useI18n();
   const soundStore = useSoundStore();
   const hotkeyStore = useHotkeyStore();
-  const runtimeStatus = useRuntimeStore((s) => s.status.status);
-  const isRunning = runtimeStatus === "Running";
 
   const [search, setSearch] = useState("");
   const [editModal, setEditModal] = useState<SoundInfo | null>(null);
@@ -123,6 +119,19 @@ export default function SoundLibrary() {
       favorite: editFavorite,
     });
     setEditModal(null);
+  };
+
+  const handleBrowseFile = async () => {
+    const selected = await open({
+      multiple: false,
+      filters: [{
+        name: "Audio Files",
+        extensions: ["wav", "mp3", "m4a", "aac", "ogg", "flac", "opus"],
+      }],
+    });
+    if (selected) {
+      setNewSoundPath(selected as string);
+    }
   };
 
   const handleAddSound = async () => {
@@ -264,17 +273,32 @@ export default function SoundLibrary() {
       {/* Add Sound Modal */}
       <Modal
         opened={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
+        onClose={() => {
+              setAddModalOpen(false);
+              setNewSoundPath("");
+              setNewSoundName("");
+            }}
         title={t("soundLibrary.addSound")}
         size="sm"
       >
         <Stack gap="md">
-          <TextInput
-            label={t("soundLibrary.filePath")}
-            placeholder={t("soundLibrary.filePathPlaceholder")}
-            value={newSoundPath}
-            onChange={(e) => setNewSoundPath(e.target.value)}
-          />
+          <Stack gap={4}>
+            <Text size="sm" fw={500}>{t("soundLibrary.filePath")}</Text>
+            <Group gap="sm">
+              <Button
+                variant="light"
+                leftSection={<IconUpload size={16} />}
+                onClick={handleBrowseFile}
+              >
+                {t("soundLibrary.browseFiles")}
+              </Button>
+            </Group>
+            {newSoundPath && (
+              <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>
+                {t("soundLibrary.selectedFile")} {newSoundPath}
+              </Text>
+            )}
+          </Stack>
           <TextInput
             label={t("soundLibrary.displayNameOptional")}
             placeholder={t("soundLibrary.soundNamePlaceholder")}

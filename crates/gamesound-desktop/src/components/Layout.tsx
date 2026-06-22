@@ -1,4 +1,5 @@
 import { AppShell, Burger, Group, Text, Title, Indicator } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   IconDashboard,
@@ -9,6 +10,9 @@ import {
   IconSettings,
   IconHelp,
 } from "@tabler/icons-react";
+import { useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useUiStore } from "../stores/useUiStore";
 import { useRuntimeStore } from "../stores/useRuntimeStore";
 import { useI18n } from "../i18n";
@@ -29,6 +33,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       : runtimeStatus === "Warning"
         ? "var(--mantine-color-yellow-6)"
         : "var(--mantine-color-gray-6)";
+
+  const statusLabel: Record<string, string> = {
+    Running: t("runtime.running"),
+    Stopped: t("runtime.stopped"),
+    Warning: t("runtime.warning"),
+  };
+
+  // Listen for native close-dialog event (non-Windows Ask behavior)
+  useEffect(() => {
+    const unlisten = listen("show-close-dialog", () => {
+      modals.openConfirmModal({
+        title: t("settings.closeDialogTitle"),
+        children: <Text size="sm">{t("settings.closeDialogDesc")}</Text>,
+        labels: {
+          confirm: t("settings.closeDialogQuit"),
+          cancel: t("settings.closeDialogCancel"),
+        },
+        confirmProps: { color: "red" },
+        cancelProps: { color: "gray" },
+        onConfirm: () => invoke("confirm_close_window", { action: "quit" }),
+        onCancel: () => invoke("confirm_close_window", { action: "minimize_to_tray" }),
+      });
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   const navItems = [
     { label: t("nav.dashboard"), icon: IconDashboard, path: "/" },
@@ -77,7 +108,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 processing={runtimeStatus === "Running"}
               />
               <Text size="xs" c="dimmed">
-                {runtimeStatus}
+                {statusLabel[runtimeStatus] ?? runtimeStatus}
               </Text>
             </Group>
           </Group>

@@ -4,6 +4,7 @@ import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -90,6 +91,19 @@ export default function App() {
   useEffect(() => {
     hydrateFromStorage();
   }, []);
+
+  // Sync native window title bar appearance with the selected theme.
+  // Tauri forces the "dark" variant on macOS when decorations are enabled,
+  // but the actual NSWindow appearance needs an explicit setTheme() call.
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    if (colorScheme === "auto") {
+      // Follow system preference
+      appWindow.setTheme(null).catch(() => {});
+    } else {
+      appWindow.setTheme(colorScheme).catch(() => {});
+    }
+  }, [colorScheme]);
 
   return (
     <QueryClientProvider client={queryClient}>

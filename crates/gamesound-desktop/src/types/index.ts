@@ -120,6 +120,7 @@ export interface DesktopSettings {
   log_level: string;
   config_dir: string;
   log_dir: string;
+  close_behavior: "ask" | "minimize_to_tray" | "quit";
 }
 
 export interface ProfileInfo {

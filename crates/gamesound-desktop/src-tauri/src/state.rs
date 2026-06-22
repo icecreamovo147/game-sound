@@ -17,11 +17,38 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Result<Self> {
+        tracing::info!(target: "gamesound_desktop::state", "initialising state");
+
         let store =
             ConfigStore::for_current_user().context("cannot locate user config directory")?;
         store.initialise()?;
+        tracing::debug!(
+            target: "gamesound_desktop::state",
+            config_dir = %store.root().display(),
+            "config directory initialised"
+        );
+
         let db_path = store.db_path();
-        let library = Library::open(&db_path).context("cannot open sound library database")?;
+        let library = match Library::open(&db_path) {
+            Ok(lib) => {
+                tracing::info!(
+                    target: "gamesound_desktop::state",
+                    db_path = %db_path.display(),
+                    "database opened"
+                );
+                lib
+            }
+            Err(e) => {
+                tracing::error!(
+                    target: "gamesound_desktop::state",
+                    db_path = %db_path.display(),
+                    error = %e,
+                    "cannot open sound library database"
+                );
+                return Err(e);
+            }
+        };
+
         Ok(Self {
             store,
             library: Mutex::new(library),
@@ -42,6 +69,12 @@ impl AppState {
         settings.duck_attack_ms = config.ducking.attack_ms;
         settings.duck_release_ms = config.ducking.release_ms;
         settings.duck_release_delay_ms = config.ducking.release_delay_ms;
+        tracing::debug!(
+            target: "gamesound_desktop::state",
+            mic_vol = settings.mic_volume,
+            sfx_vol = settings.sfx_volume,
+            "mixer settings restored from config"
+        );
         Ok(())
     }
 
@@ -50,9 +83,9 @@ impl AppState {
         Ok(())
     }
 
-    pub fn save_config(&self) -> Result<()> {
+    /// Save config using a borrowed MixerSettings reference (no lock).
+    pub fn save_config_with(&self, settings: &gamesound_core::mixer::MixerSettings) -> Result<()> {
         let mut config = self.store.load().unwrap_or_default();
-        let settings = self.mixer_settings.lock().unwrap();
         config.volume.mic = settings.mic_volume;
         config.volume.sfx = settings.sfx_volume;
         config.volume.monitor = settings.monitor_volume;
@@ -62,6 +95,7 @@ impl AppState {
         config.ducking.release_ms = settings.duck_release_ms;
         config.ducking.release_delay_ms = settings.duck_release_delay_ms;
         self.store.save(&config)?;
+        tracing::trace!(target: "gamesound_desktop::state", "config saved");
         Ok(())
     }
 
@@ -97,6 +131,12 @@ impl AppState {
         }
 
         let count = sound_bindings.len();
+        tracing::debug!(
+            target: "gamesound_desktop::state",
+            binding_count = count,
+            "configuring hotkeys"
+        );
+
         let _ = handle.commands.send(RuntimeCommand::SetHotkeys {
             sounds: sound_bindings,
             stop_all: config.hotkeys.stop_all.clone(),

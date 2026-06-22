@@ -235,7 +235,6 @@ fn config(f: &mut Frame, a: &App) {
     let monitor_mode = match a.config.monitor.mode {
         MonitorMode::SfxOnly => "SFX only",
         MonitorMode::FullMix => "full mix",
-        MonitorMode::Off => "off",
     };
     let none = tr(a, "not selected", "未选择");
     let enabled = tr(a, "enabled", "开启");

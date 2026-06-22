@@ -14,6 +14,7 @@ interface SettingsState {
     log_level?: string;
     monitor_mode?: string;
     hotkeys_enabled?: boolean;
+    close_behavior?: string;
   }) => Promise<void>;
   resetConfig: () => Promise<void>;
   exportConfig: () => Promise<string>;

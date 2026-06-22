@@ -2,28 +2,111 @@ use tauri::Manager;
 
 mod commands;
 mod events;
+mod lifecycle;
+pub mod logging;
 mod state;
+mod tray;
 
+use lifecycle::AppLifecycle;
 use state::AppState;
 
 pub fn run() {
-    let state = AppState::new().expect("failed to initialise GameSound desktop state");
+    tracing::info!(
+        target: "gamesound_desktop::app",
+        platform = %std::env::consts::OS,
+        version = env!("CARGO_PKG_VERSION"),
+        "GameSound starting"
+    );
+
+    let state = match AppState::new() {
+        Ok(s) => {
+            tracing::info!(target: "gamesound_desktop::app", "app state initialised");
+            s
+        }
+        Err(e) => {
+            tracing::error!(
+                target: "gamesound_desktop::app",
+                error = %e,
+                "failed to initialise app state"
+            );
+            std::process::exit(1);
+        }
+    };
+
+    // Re-init logging with the config directory available for file output.
+    logging::init_logging(Some(&state.store.logs_path()));
+    tracing::info!(
+        target: "gamesound_desktop::app",
+        config_dir = %state.store.root().display(),
+        "config directory ready"
+    );
+
+    let app_lifecycle = AppLifecycle::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(state)
+        .manage(app_lifecycle)
         .setup(|app| {
+            tracing::info!(target: "gamesound_desktop::tauri", "setup started");
+
             let handle = app.handle().clone();
 
             // Restore saved config and start event polling
             let app_state = app.state::<AppState>();
-            let _ = app_state.restore_config();
+            match app_state.restore_config() {
+                Ok(()) => tracing::debug!(target: "gamesound_desktop::tauri", "config restored"),
+                Err(e) => tracing::warn!(target: "gamesound_desktop::tauri", error = %e, "config restore failed"),
+            }
             let _ = app_state.restore_hotkeys();
+
+            tracing::info!(target: "gamesound_desktop::tauri", "app state registered");
+
+            // Create system tray
+            match tray::create_tray(app.handle()) {
+                Ok(()) => tracing::info!(target: "gamesound_desktop::tauri", "tray initialised"),
+                Err(e) => tracing::error!(target: "gamesound_desktop::tauri", error = %e, "tray initialisation failed"),
+            }
+
+            // Intercept main window close event
+            match app.get_webview_window("main") {
+                Some(window) => {
+                    tracing::info!(target: "gamesound_desktop::tauri", "main window found");
+
+                    let window_clone = window.clone();
+                    let handle_clone = app.handle().clone();
+                    window.on_window_event(move |event| {
+                        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                            // Always prevent the default close — we handle it ourselves
+                            api.prevent_close();
+
+                            let lifecycle = handle_clone.state::<AppLifecycle>();
+                            let state = handle_clone.state::<AppState>();
+                            let config = state.store.load().unwrap_or_default();
+                            let behavior = match config.desktop.close_behavior {
+                                gamesound_storage::config::CloseBehavior::Ask => "ask",
+                                gamesound_storage::config::CloseBehavior::MinimizeToTray => {
+                                    "minimize_to_tray"
+                                }
+                                gamesound_storage::config::CloseBehavior::Quit => "quit",
+                            };
+                            lifecycle::handle_close_request(&window_clone, &lifecycle, behavior);
+                        }
+                    });
+
+                    tracing::info!(target: "gamesound_desktop::tauri", "window event handlers registered");
+                }
+                None => {
+                    tracing::warn!(target: "gamesound_desktop::tauri", "main window missing");
+                }
+            }
 
             // Spawn background event-forwarding task
             events::spawn_event_forwarder(handle.clone());
+            tracing::debug!(target: "gamesound_desktop::tauri", "event forwarder spawned");
 
+            tracing::info!(target: "gamesound_desktop::tauri", "setup completed");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -70,6 +153,7 @@ pub fn run() {
             commands::settings::open_config_dir,
             commands::settings::open_log_dir,
             commands::settings::get_profile_info,
+            commands::runtime::confirm_close_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running GameSound Desktop");

@@ -1,6 +1,6 @@
 import { UnstyledButton, Tooltip, Text } from "@mantine/core";
 import type { IconProps } from "@tabler/icons-react";
-import type { ComponentType, FC } from "react";
+import type { FC } from "react";
 
 type IconComponent = FC<IconProps>;
 

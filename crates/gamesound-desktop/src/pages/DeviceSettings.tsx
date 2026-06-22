@@ -1,5 +1,4 @@
 import {
-  Paper,
   Title,
   Stack,
   Group,
@@ -75,7 +74,7 @@ export default function DeviceSettings() {
             {t("devices.installDriver")}
           </Text>
           <Text size="xs" mt={4}>
-            <strong>Windows:</strong> Install{" "}
+            <strong>{t("devices.windows")}:</strong> {t("devices.install")}{" "}
             <a
               href="https://vb-audio.com/Cable/"
               target="_blank"
@@ -84,7 +83,7 @@ export default function DeviceSettings() {
               VB-CABLE
             </a>
             <br />
-            <strong>macOS:</strong> Install{" "}
+            <strong>{t("devices.macOS")}:</strong> {t("devices.install")}{" "}
             <a
               href="https://existential.audio/blackhole/"
               target="_blank"
@@ -92,7 +91,7 @@ export default function DeviceSettings() {
             >
               BlackHole
             </a>
-            {" "}(2ch version)
+            {" "}{t("devices.twoChannelVersion")}
           </Text>
         </Alert>
       )}

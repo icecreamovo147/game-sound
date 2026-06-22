@@ -36,6 +36,9 @@ impl Default for MixerSettings {
         }
     }
 }
+/// Deterministic single-frame mix for testing. The real-time audio pipeline
+/// uses the per-sample ducking envelope in `audio::OutputState::render`.
+#[allow(dead_code)]
 pub fn mix_frame(mic: &[f32], effects: &[Vec<f32>], settings: MixerSettings) -> (Vec<f32>, Levels) {
     let active = effects.iter().any(|f| f.iter().any(|x| *x != 0.0));
     let mic_gain = if settings.mic_muted {

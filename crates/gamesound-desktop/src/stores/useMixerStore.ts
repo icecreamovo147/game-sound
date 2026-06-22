@@ -34,7 +34,7 @@ const defaultMixer: MixerInfo = {
   monitor_level: 0,
 };
 
-export const useMixerStore = create<MixerState>((set, get) => ({
+export const useMixerStore = create<MixerState>((set, _get) => ({
   settings: { ...defaultMixer },
   isLoading: false,
   error: null,

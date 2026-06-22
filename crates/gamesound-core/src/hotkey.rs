@@ -6,12 +6,27 @@ use global_hotkey::{
 };
 use std::collections::HashMap;
 
+#[cfg(target_os = "macos")]
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrusted() -> bool;
+}
+
 pub struct HotkeyRegistry {
     manager: GlobalHotKeyManager,
     bindings: HashMap<u32, String>,
 }
 impl HotkeyRegistry {
     pub fn new() -> Result<Self> {
+        #[cfg(target_os = "macos")]
+        {
+            let trusted = unsafe { AXIsProcessTrusted() };
+            if !trusted {
+                anyhow::bail!(
+                    "macOS Accessibility permission not granted.\n\n                     To enable global hotkeys, open System Settings → Privacy & Security → Accessibility,\n                     then add and enable GameSound Desktop.\n\n                     If the app is not listed, click the '+' button and navigate to the app bundle,\n                     or drag the app icon from Finder into the list."
+                );
+            }
+        }
         Ok(Self {
             manager: GlobalHotKeyManager::new()
                 .context("cannot initialise global hotkey manager")?,
