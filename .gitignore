@@ -20,6 +20,8 @@
 *.p12
 *.pfx
 
+.test-tone-2s.wav
+
 # Editor and OS metadata
 .DS_Store
 .idea/
